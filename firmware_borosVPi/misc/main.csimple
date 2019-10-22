@@ -1,0 +1,23 @@
+#include<uart.h>
+#include<clock.h>
+#include<stdio.h>
+#include<gpio.h>
+
+
+
+void main() {
+    disable_interrupts();
+    init_clocks();
+    uart_init();
+    PD_DDR |= (1<<4); // Enable outpur
+    PD_CR1 |= (1<<4); // PP OUTPUT
+    PC_DDR |= (1<<4); // Enable outpur
+    PC_CR1 |= (1<<4); // PP OUTPUT
+    PC_ODR |= (1<<4);
+    enable_interrupts();
+    printf("\nHOLA\n\r");
+    while(1) {
+        __asm__("nop");
+        PD_ODR ^= (1<<4);
+    }
+}

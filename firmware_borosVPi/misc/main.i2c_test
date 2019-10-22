@@ -1,0 +1,197 @@
+#include<stm8s.h>
+#include<uart.h>
+#include<stdio.h>
+
+
+volatile int _total;
+volatile uint8_t i2c_error;
+volatile uint32_t _milis;
+volatile uint16_t _seconds;
+
+//
+//  Set up the system clock to run at 16MHz using the internal oscillator.
+//
+void InitialiseSystemClock()
+{
+    CLK_ICKR = 0;                       //  Reset the Internal Clock Register.
+    CLK_ICKR |= (1<< CLK_ICKR_HSIEN);   //  Enable the HSI.
+    CLK_ECKR = 0;                       //  Disable the external clock.
+    while ( !(CLK_ICKR & (1<<CLK_ICKR_HSIRDY)) );       //  Wait for the HSI to be ready for use.
+    CLK_CKDIVR = 0;                     //  Ensure the clocks are running at full speed.
+    CLK_PCKENR1 = 0b00111101;                 //  Enable all peripheral clocks.
+    CLK_PCKENR2 = 0;                    //  Ditto.
+    CLK_CCOR = 0;                       //  Turn off CCO.
+    CLK_HSITRIMR = 0;                   //  Turn off any HSIU trimming.
+    CLK_SWIMCCR = 0;                    //  Set SWIM to run at clock / 2.
+    CLK_SWR = 0xe1;                     //  Use HSI as the clock source.
+    CLK_SWCR = 0;                       //  Reset the clock switch control register.
+    CLK_SWCR |= ( 1 << CLK_SWCR_SWEN);  //  Enable switching.
+    while ( CLK_SWCR & (1 << CLK_SWCR_SWBSY) );        //  Pause while the clock switch is busy.
+}
+
+//
+//  Initialise the I2C system.
+//
+void InitialiseI2C() {
+    I2C_CR1 &= ~(1<<I2C_CR1_PE);                     //  Disable I2C before configuration starts.
+    //
+    //  Set up the clock information.
+    //
+    I2C_FREQR = 16;                     //  Set the internal clock frequency (MHz).
+    //I2C_CCRH_F_S = 0;                   //  I2C running is standard mode.
+    I2C_CCRL = 0xa0;                    //  SCL clock speed is 50 KHz.
+    //I2C_CCRH_CCR = 0x00;
+    I2C_CCRH = 0;
+
+    //
+    //  Set the address of this device.
+    //
+    //I2C_OARH_ADDMODE = 0;               //  7 bit address mode.
+    //I2C_OARH_ADD = 0;                   //  Set this device address to be 0x50.
+    //I2C_OARL_ADD = 0x50;
+    //I2C_OARH_ADDCONF = 1;               //  Docs say this must always be 1.
+    I2C_OARL = (0x33 << 1);
+    I2C_OARH = 0b01000000;
+    //
+    //  Set up the bus characteristics.
+    //
+    //I2C_TRISER = 17;
+    //
+    //  Turn on the interrupts.
+    //
+    //ITBUFEN = 1;                //  Buffer interrupt enabled.
+    //I2C_ITR_ITEVTEN = 1;                //  Event interrupt enabled.
+    //I2C_ITR_ITERREN = 1;
+    I2C_ITR= 0b111;
+
+    //
+    //  Configuration complete so turn the peripheral on.
+    //
+    //I2C_CR1_PE = 1;
+    I2C_CR1 |= (1<<I2C_CR1_PE); 
+    
+
+    //
+    //  Acknowledge each byte with an ACK signal.
+    //
+    I2C_CR2 |= (1<<I2C_CR2_ACK);
+}
+
+//
+//  I2C interrupts all share the same handler.
+//
+
+void I2C_IRQHandler() __interrupt(I2C_ISR)
+{
+    unsigned char reg;
+    
+    //PD_ODR |= (1 << 4); // IRQ trigger 
+    //PC_ODR |= (1<<4);  
+    //PC_ODR &= ~(1<<4); 
+
+    if (I2C_SR1 & (1<< I2C_SR1_ADDR))
+    {
+        //
+        //  Clear the status registers and wait for some data from the salve.
+        //
+             
+        reg = I2C_SR1;
+        reg = I2C_SR3;
+        _total = 0;                 // New addition so clear the total.
+        //I2C_CR2 |= (1<<I2C_CR2_ACK);
+        
+        return;
+    }
+    if (I2C_SR1 & (1<<I2C_SR1_RXNE))
+    {
+        //
+        //  Received a new byte of data so add to the running total.
+        //
+        //PC_ODR |= (1<<4);  
+        _total += I2C_DR;
+        //PC_ODR &= ~(1<<4);
+        //I2C_CR2 |= (1<<I2C_CR2_ACK); 
+        return;
+    }
+    if(I2C_SR1 & (1 << I2C_SR1_TXE) ){
+        I2C_DR=_total+0x80;
+        _total++;
+        return;
+    }
+
+    if(I2C_SR1 & (1 << I2C_SR1_STOPF)) {
+        PC_ODR |= (1<<4); 
+        reg=I2C_SR1; // required by RM0016
+        //I2C_CR2 |= (1 << I2C_CR2_STOP); // Clear stop flag & set bus release RM0016
+        I2C_CR2 = 0b100;
+        PC_ODR &= ~(1<<4);  
+        return;
+    }
+    //
+    //  Send a diagnostic signal to indicate we have cleared
+    //  the error condition.
+    //
+    //PIN_ERROR = 1;
+    //nop();
+    //PIN_ERROR = 0;
+    //
+    //  If we get here then we have an error so clear
+    //  the error, output the status registers and continue.
+    //
+    PC_ODR |= (1<<4); 
+    reg = I2C_SR1;
+    //BitBang(reg);
+    reg = I2C_SR3;
+    //BitBang(reg);
+    i2c_error = I2C_SR2 & 0x0F;
+    I2C_SR2 &= ~(0x0F);  // clear al errors
+    PC_ODR &= ~(1<<4);  
+}
+
+//
+//  Main program loop.
+//
+int main()
+{
+    i2c_error=_total = 0;
+    //disable_interrupts();
+    //
+    //  Initialise Port D.
+    //
+    /*PD_ODR = 0;             //  All pins are turned off.
+    PD_DDR_DDR4 = 1;        //  Port D, bit 4 is output.
+    PD_CR1_C14 = 1;         //  Pin is set to Push-Pull mode.
+    PD_CR2_C24 = 1;         //  Pin can run up to 10 MHz.
+    //
+    PD_DDR_DDR5 = 1;        //  Port D, bit 5 is output.
+    PD_CR1_C15 = 1;         //  Pin is set to Push-Pull mode.
+    PD_CR2_C25 = 1;         //  Pin can run up to 10 MHz.
+    //
+    PD_DDR_DDR6 = 1;        //  Port D, bit 6 is output.
+    PD_CR1_C16 = 1;         //  Pin is set to Push-Pull mode.
+    PD_CR2_C26 = 1;         //  Pin can run up to 10 MHz.
+    */
+    PD_DDR |= ( 1 << 4);   // output.
+    PC_DDR |= ( 1 << 4);   // output.
+    PD_CR1 |= ( 1 << 4);   // push pull
+    PC_CR1 |= ( 1 << 4);
+    //
+    InitialiseSystemClock();
+    uart_init();
+    InitialiseI2C();
+    enable_interrupts();
+    printf("\n-Starting %i....",_total);
+    while (1)
+    {
+        //__wait_for_interrupt();
+        //__asm__("wfi");
+        //PD_ODR &= ~(1 << 4); // Off PD4
+        PD_ODR ^= (1 << 4); // Off PD4
+        //if(_total>0) {
+    
+        //    printf("i2cE:%02X\n",i2c_error);
+        //    _total=0;
+        //}
+
+    }
+}

@@ -1,0 +1,107 @@
+
+
+
+
+#include <stm8s.h>
+#include <util.h>
+
+volatile uint32_t _milis;
+
+const uint16_t timer2_arr = 999; // PWM with 2kHz frequency
+const uint16_t timer2_ccr1 = 249; // 25% duty cycle.
+int main() {
+  disable_interrupts();
+
+  // As per datasheet of stm8s103f3 PD4 pin is timer 2 channel 1.
+  SET_BIT(PD_DDR, 4); // 0b00010000 PD4 is now output
+  SET_BIT(PD_CR1, 4); // 0b00010000 PD4 is now pushpull
+  //SET_BIT(PD_ODR, 4);
+
+  TIM2_PSCR = 0x00; // Prescaler = 1
+
+  // Fill 16 bit timer2_arr to two 8 bit registers.
+  // MSB register to be filled first.
+  TIM2_ARRH = timer2_arr >> 8;
+  TIM2_ARRL = timer2_arr & 0x00FF;
+
+  // Fill 16 bit timer2_ccr1 to two 8 bit registers.
+  // MSB register to be filled first.
+  TIM2_CCR1H = timer2_ccr1 >> 8;
+  TIM2_CCR1L = timer2_ccr1 & 0x00FF;
+
+  //SET_BIT(TIM2_CCER1, TIM2_CCER1_CC1P); // channel 1 active low
+  SET_BIT(TIM2_CCER1, TIM2_CCER1_CC1E); // Enable channel 1 output
+
+  // PWM mode 1.
+  SET_BIT(TIM2_CCMR1, 6); // Set output compare mode as 6 (0b110)
+  SET_BIT(TIM2_CCMR1, 5); // So channel 1 will be acitve while counter
+  CLEAR_BIT(TIM2_CCMR1, 4);  // is lower than compare value.
+
+  SET_BIT(TIM2_CR1, TIM2_CR1_CEN); // Enable counter
+  //SET_BIT(TIM2_CR1, TIM2_CR1_ARPE); // Enable counter
+
+  enable_interrupts();
+  while(1) {
+    // Do nothing
+  }
+}
+
+/* 
+//
+//  Setup the system clock to run at 16MHz using the internal oscillator.
+//
+void InitialiseSystemClock()
+{
+    CLK_ICKR = 0;                       //  Reset the Internal Clock Register.
+    CLK_ICKR |= (1<< CLK_ICKR_HSIEN);   //  Enable the HSI.
+    CLK_ECKR = 0;                       //  Disable the external clock.
+    while ( !(CLK_ICKR & (1<<CLK_ICKR_HSIRDY)) );       //  Wait for the HSI to be ready for use.
+    CLK_CKDIVR = 0;                     //  Ensure the clocks are running at full speed.
+    CLK_PCKENR1 = 0xff;                 //  Enable all peripheral clocks.
+    CLK_PCKENR2 = 0xff;                    //  Ditto.
+    CLK_CCOR = 0;                       //  Turn off CCO.
+    CLK_HSITRIMR = 0;                   //  Turn off any HSIU trimming.
+    CLK_SWIMCCR = 0;                    //  Set SWIM to run at clock / 2.
+    CLK_SWR = 0xe1;                     //  Use HSI as the clock source.
+    CLK_SWCR = 0;                       //  Reset the clock switch control register.
+    CLK_SWCR |= ( 1 << CLK_SWCR_SWEN);  //  Enable switching.
+    while ( CLK_SWCR & (1 << CLK_SWCR_SWBSY) );        //  Pause while the clock switch is busy.
+}
+
+//
+//  Setup Timer 2 to PWM signal.
+//
+void SetupTimer2()
+{
+    TIM2_PSCR = 0x00;       //  Prescaler = 1.
+    TIM2_ARRH = 0x10;       //  High byte of 50,000.
+    TIM2_ARRL = 0x00;       //  Low byte of 50,000.
+    TIM2_CCR1H = 0x08;      //  High byte of 12,500
+    TIM2_CCR1L = 0x00;      //  Low byte of 12,500
+    //TIM2_CCER1_CC1P = 0;    //  Active high.
+    //TIM2_CCER1_CC1E = 1;    //  Enable compare mode for channel 1
+    TIM2_CCER1 |= 1;
+    //TIM2_CCMR1_OC1M = 6;    //  PWM Mode 1 - active if counter < CCR1, inactive otherwise.
+    TIM2_CCMR1 |= (6 << 4);
+    TIM2_CR1 |= 1;       //  Finally enable the timer.
+}
+
+//
+//  Main program loop.
+//
+void main()
+{
+    //
+    //  Initialise the system.
+    //
+    disable_interrupts();
+    InitialiseSystemClock();
+    SetupTimer2();
+    enable_interrupts();
+    while (1)
+    {
+        //__wait_for_interrupt();
+    }
+}
+
+*/
