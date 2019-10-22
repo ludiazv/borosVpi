@@ -16,5 +16,12 @@ jobs:
       #  - cd firmware_borosVPi
       script:
         - make all
+    - language: rust
+      before_install:
+        - cd vpid
+      install:
+        - cargo install cross
+      script:
+        - ./buildall.sh
     
 
