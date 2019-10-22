@@ -12,8 +12,8 @@ jobs:
         - cd firmware_borosVPi
       install: 
         - python tools.py install
-      before_script:
-        - cd firmware_borosVPi
+      #before_script:
+      #  - cd firmware_borosVPi
       script:
         - make all
     
