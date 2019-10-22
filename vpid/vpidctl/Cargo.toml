@@ -1,0 +1,15 @@
+[package]
+name = "vpidctl"
+version = "0.1.0"
+authors = ["boros"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vpi = { path = "../vpi" }
+#docopt = "1.1"
+clap = "2.33"
+ansi_term= "0.12"
+strum = "0.16"
+strum_macros = "0.16"

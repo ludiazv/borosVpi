@@ -1,0 +1,22 @@
+---
+# ------------------------  
+# VPID configuration file
+# ------------------------
+
+# General configuration
+# ---------------------
+# I2C device full path 
+device: "/dev/i2c-1"
+# polling time in ms (should be shorter than space_time)
+poll_time: 150
+# Button parameters
+# short_time -> max time for short click in ms
+# space_time -> min time between consecutive clicks in ms
+# grace_time -> grace time for shutdown/halt in seconds
+# hold_time  -> continuos push for hard shutdown in seconds
+short_time: 250 
+space_time: 1250
+grace_time: 15
+hold_time:  7
+# High level Watchdog time in seconds 0 (default) deactivate wdg
+#watch_dog: 20
