@@ -8,7 +8,13 @@ jobs:
   include:
     - language: python
       python: 3.7
-      install: cd firmware_borosVPi && python tools.py install
-      script: cd firmware_borosVPi && make all
+      before_install:
+        - cd firmware_borosVPi
+      install: 
+        - python tools.py install
+      before_script:
+        - cd firmware_borosVPi
+      script:
+        - make all
+    
 
-      
