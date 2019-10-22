@@ -24,6 +24,7 @@ OBJCOPY ?= stm8-objcopy
 OBJSIZE ?= stm8-size
 FLASH	?= stm8flash
 OPENOCD ?= openocd
+STAT    ?= stat
 
 # Flags
 ASFLAGS = -plogsgff
@@ -73,22 +74,25 @@ $(BUILDDIR)/release/%.rel: **/%.c
 
 debug: debug_dir $(DOBJS)
 	@echo "Linking Debug main+[$(DOBJS)]"
-	@$(CC) $(CFLAGS) $(LDFLAGS)  --out-fmt-ihx -o $(BUILDDIR)/debug/firmware.ihx main.c $(DOBJS) 
-	@$(CC)  $(CFLAGS) $(LDFLAGS)  --out-fmt-elf --debug -o $(BUILDDIR)/debug/firmware.elf main.c $(DOBJS)
-	@$(OBJCOPY) -I ihex -O binary $(BUILDDIR)/debug/firmware.ihx $(BUILDDIR)/debug/firmware.bin
-	$(OBJSIZE) -d  $(BUILDDIR)/debug/firmware.elf
+	$(CC) $(CFLAGS) $(LDFLAGS)  --out-fmt-ihx --debug -o $(BUILDDIR)/debug/firmware.ihx main.c $(DOBJS) 
+	$(CC) $(CFLAGS) $(LDFLAGS)  --out-fmt-elf -o $(BUILDDIR)/debug/firmware.elf main.c $(DOBJS)
+	$(OBJCOPY) -I ihex -O binary $(BUILDDIR)/debug/firmware.ihx $(BUILDDIR)/debug/firmware.bin
+	$(OBJSIZE) -d $(BUILDDIR)/debug/firmware.elf
 
 release: relase_dir $(ROBJS)
 	@echo "Linking Release main+[$(ROBJS)]"
 	@$(CC) $(CFLAGS) $(LDFLAGS)  --out-fmt-ihx -o $(BUILDDIR)/release/firmware.ihx main.c $(ROBJS)
+	@echo "Built ihx!"
 	@$(CC) $(CFLAGS) $(LDFLAGS)  --out-fmt-elf -o $(BUILDDIR)/release/firmware.elf main.c $(ROBJS)
+	@echo "Built elf!"
 	@$(CC) $(CFLAGS) $(LDFLAGS)  --code-loc 0x8300 -o $(BUILDDIR)/release/firmware_boot.ihx main.c $(ROBJS)
+	@echo "Built ihx for bootloader!"
 	@$(OBJCOPY) -I ihex -O binary $(BUILDDIR)/release/firmware.ihx $(BUILDDIR)/release/firmware.bin
 	@$(OBJCOPY) -I ihex -O binary $(BUILDDIR)/release/firmware_boot.ihx $(BUILDDIR)/release/firmware_boot.bin
 	@$(OBJSIZE) -d  $(BUILDDIR)/release/firmware.elf
 	@echo "Binary Size:"
-	@stat -f %z $(BUILDDIR)/release/firmware.bin
-	@stat -f %z $(BUILDDIR)/release/firmware_boot.bin
+	@$(STAT) $(BUILDDIR)/release/firmware.bin
+	@$(STAT) $(BUILDDIR)/release/firmware_boot.bin
 
 
 flash: release
