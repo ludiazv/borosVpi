@@ -1,27 +1,14 @@
 # Automate build for VPI
 dist: xenial
-
 services:
   - docker
+language: rust
+cache: cargo
 
-jobs:
-  include:
-    - language: python
-      python: 3.7
-      before_install:
-        - cd firmware_borosVPi
-      install: 
-        - python tools.py install
-      #before_script:
-      #  - cd firmware_borosVPi
-      script:
-        - make all
-    - language: rust
-      before_install:
-        - cd vpid
-      install:
-        - cargo install cross
-      script:
-        - ./buildall.sh
-    
-
+script:
+  - cd firmware_borosVPi
+  - python tools.py install
+  - make all
+  - cd ../vpid
+  - cargo install cross
+  - ./buildall.sh
