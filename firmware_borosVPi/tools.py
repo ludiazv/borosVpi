@@ -75,7 +75,7 @@ def install(dos):
     try:
         m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
     except:
-        m = json.loads(man.read().decode('utf-8'))
+        m = json.loads(manr.read().decode('utf-8'))
 
     manr.close()
     
@@ -94,7 +94,7 @@ def install(dos):
     try:
         m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
     except:
-        m = json.loads(man.read().decode('utf-8'))
+        m = json.loads(manr.read().decode('utf-8'))
     manr.close()
 
     fdos=""
@@ -131,7 +131,7 @@ if __name__== "__main__":
     
     if p.os is not None:
         def_os = p.os
-        
+
     # Remove last tool if no debug is wanted    
     if p.build_only is not None:
         build_only=True
