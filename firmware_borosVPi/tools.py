@@ -21,10 +21,10 @@ PIO_MAN="https://dl.platformio.org/packages/manifest.json"
 OPENOCD_REPO="https://api.github.com/repos/gnu-mcu-eclipse/openocd/releases/latest"
 
 # Tools =( tool , min version)
-TOOLS=[("tool-stm8binutils","0.230.0"),("tool-stm8tools","0.40.181218"),("toolchain-sdcc","1.30804.10766")]
+TOOLS=[("tool-stm8binutils","0.230.0"),("toolchain-sdcc","1.30804.10766"),("tool-stm8tools","0.40.181218"),]
 # Dirs
 TOOL_DIR="toolchain"
-
+build_only=False
 
 def mkdir_p(path):
     try:
@@ -72,7 +72,11 @@ def install(dos):
 
     print("Dowload PIO manifest....")
     manr= urlopen(PIO_MAN)
-    m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
+    try:
+        m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
+    except:
+        m = json.loads(man.read().decode('utf-8'))
+
     manr.close()
     
     print("Processing manifest....")
@@ -82,9 +86,15 @@ def install(dos):
             if( dos in ver['system'] and ver['version'] >= v):
                 install_package(t,dos,ver['url'])
     
+    if build_only:
+        return
+
     print("Open OCD GNU")
     manr=urlopen(OPENOCD_REPO)
-    m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
+    try:
+        m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
+    except:
+        m = json.loads(man.read().decode('utf-8'))
     manr.close()
 
     fdos=""
@@ -116,10 +126,16 @@ if __name__== "__main__":
     parser = argparse.ArgumentParser(description="STM8 Toolchain manager")
     parser.add_argument("action",help="install or uninstall all toolchains",choices=["install","uninstall"])
     parser.add_argument("-o","--os",choices=OSES,help="operating system")
+    parser.add_argument("-b","--build-only",help="Not install flash and debug tools")
     p=parser.parse_args()
     
     if p.os is not None:
         def_os = p.os
+        
+    # Remove last tool if no debug is wanted    
+    if p.build_only is not None:
+        build_only=True
+        del TOOLS[-1]
     
     print("Using os: %s" %(def_os))
     if p.action == "install":
