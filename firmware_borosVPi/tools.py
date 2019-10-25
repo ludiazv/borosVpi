@@ -75,7 +75,7 @@ def install(dos):
     try:
         m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
     except:
-        m = json.loads(manr.read().decode('utf-8'))
+        m = json.loads(manr.read())
 
     manr.close()
     
@@ -94,7 +94,7 @@ def install(dos):
     try:
         m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
     except:
-        m = json.loads(manr.read().decode('utf-8'))
+        m = json.loads(manr.read())
     manr.close()
 
     fdos=""
