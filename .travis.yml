@@ -6,6 +6,9 @@ language: rust
 cache: cargo
 
 script:
+  - source ~/virtualenv/python3.7/bin/activate
+  - python --version
+  - pip --version
   - cd firmware_borosVPi
   - python tools.py install
   - make all
