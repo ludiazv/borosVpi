@@ -126,7 +126,7 @@ if __name__== "__main__":
     parser = argparse.ArgumentParser(description="STM8 Toolchain manager")
     parser.add_argument("action",help="install or uninstall all toolchains",choices=["install","uninstall"])
     parser.add_argument("-o","--os",choices=OSES,help="operating system")
-    parser.add_argument("-b","--build-only",help="Not install flash and debug tools")
+    parser.add_argument("-b","--build-only", action="store_true", help="Not install flash and debug tools")
     p=parser.parse_args()
     
     if p.os is not None:
