@@ -6,11 +6,8 @@ language: rust
 cache: cargo
 
 script:
-  - source ~/virtualenv/python3.7/bin/activate
-  - python --version
-  - pip --version
   - cd firmware_borosVPi
-  - python tools.py install
+  - docker run -it --rm --name tools -v "$PWD":/usr/src/myapp -w /usr/src/myapp python:3.7-slim python tools.py install
   - make all
   - cd ../vpid
   - cargo install cross
