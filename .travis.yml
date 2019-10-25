@@ -8,7 +8,15 @@ cache: cargo
 script:
   - cd firmware_borosVPi
   - docker run -it --rm --name tools -v "$PWD":/usr/src/myapp -w /usr/src/myapp python:3.7-slim python tools.py install
-  - make all
+  - make release
   - cd ../vpid
-  - cargo install cross
+  - | 
+    cargo install --list | grep cross
+    if [ $? -eq 0 ] ; then
+      cargo install cross --force
+    fi
+    cargo install --list | grep cargo-deb
+    if [ $? -eq 0 ] ; then
+      cargo install cargo-deb --force
+    fi
   - ./buildall.sh

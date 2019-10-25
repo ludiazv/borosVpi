@@ -1,7 +1,7 @@
 #!/bin/bash
 
-ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" )
-
+#ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" )
+ARCHS=( "arm-unknown-linux-musleabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl")
 
 echo "Vpi cross compilation script"
 
