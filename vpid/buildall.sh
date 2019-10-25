@@ -7,15 +7,15 @@ echo "Vpi cross compilation script..."
 echo "==============================="
 printf "Check cross tools..."
 cargo install --list | grep cross
-if [ $? -eq 0 ] ; then
+if [ $? -ne 0 ] ; then
     echo "not installed. force install"  
     cargo install cross --force
 else
     echo "Installed!"
 fi
-prinf "Check cargo-deb tool..."
+printf "Check cargo-deb tool..."
 cargo install --list | grep cargo-deb
-if [ $? -eq 0 ] ; then
+if [ $? -ne 0 ] ; then
     echo "not installed. force install"
     cargo install cargo-deb --force
 else
