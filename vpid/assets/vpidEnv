@@ -1,0 +1,19 @@
+# VPID enviroment file.
+# This file is required to run VPID as a service with systemd 
+
+# I2C interface. In RPI boards is /dev/i2c-1 other boards may use /dev/i2c-0
+VPI_DEVICE=/dev/i2c-1
+
+# vpid & vpidctl 
+#VPI_BINDIR=/usr/bin
+VPI_BINDIR=/home/boros/vpid_bin
+# Define log level (info,warn,error)
+VPI_LOGLEVEL=warn
+# Location of the config file
+VPI_CONFIGFILE=/etc/vpid/vpid.yml
+# Vpid socket name
+VPI_SOCKET=/var/run/vpid.sock
+# I2C address use in case of custom build with different address
+VPI_ADDRESS=0x33
+# Power off the board when system shutdowns 0-No 1-Yes
+VPI_SHUTDOWN=0

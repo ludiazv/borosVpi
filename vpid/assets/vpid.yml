@@ -3,20 +3,106 @@
 # VPID configuration file
 # ------------------------
 
-# General configuration
-# ---------------------
-# I2C device full path 
-device: "/dev/i2c-1"
-# polling time in ms (should be shorter than space_time)
-poll_time: 150
+
 # Button parameters
+# -----------------
 # short_time -> max time for short click in ms
 # space_time -> min time between consecutive clicks in ms
 # grace_time -> grace time for shutdown/halt in seconds
 # hold_time  -> continuos push for hard shutdown in seconds
-short_time: 250 
-space_time: 1250
-grace_time: 15
-hold_time:  7
-# High level Watchdog time in seconds 0 (default) deactivate wdg
-#watch_dog: 20
+short_time: 350 
+space_time: 1050
+grace_time: 17
+hold_time:  6
+
+# Other configuration parameters
+# ------------------------------
+# watchdog         -> High level Watchdog time in seconds 0 (default) deactivate wdg
+# watch_autofeed   -> <true/false> the service will auto feed the watchdog
+# poll_time        -> Overide polling time in ms (should be shorter than space_time)
+# poweroff_onexit  -> Poweroff when vpid service is finished gracefully poweroff
+# shutdown_command -> Custom shuthdown command.
+# reboot_command   -> Custom reboot command. default: /
+# shell            -> Shell to run commands. default: /bin/sh -c
+# wake             -> Configure wake mode on boot. default:0. if >0 wake will be enabled
+# wake_irq         -> Configure wake by IRQ on boot.
+watchdog: 0
+watchdog_autofeed: false
+# poll_time: 750
+poweroff_onexit: true
+#shutdown_command: <custom shutdown command>
+#reboot_command: <custom reboot command>
+#wake_irq: <true/false>
+#wake: <minutes>
+#shell: <custom shell>
+
+# Rules
+# -----
+rules:
+  - name: IRQ notification via touch file
+    when: irq == true
+    kind: Shell
+    script: touch /var/run/vpid_irq.txt
+  - name: test shell
+    when: long == 1
+    kind: Shell
+    script: touch ./short.txt
+  - name: test lua
+    when: short == 1
+    kind: Lua
+    timeout: 1
+    script: |
+        print(_VERSION)
+        
+        function sleep(n)
+          os.execute("sleep " .. tonumber(n))
+        end
+        
+        local i=0;
+        while(not test_cancel())
+        do
+          -- if(i % 500 == 0) 
+          -- then
+          print("Hi from lua " .. i)
+          -- end
+          sleep(2)
+          i = i + 1
+        end
+        return 0
+
+#  - name: Power off with two long touches in power Button
+#    when: long == 2
+#    type: Shutdown
+#  - name: Reboot with two short clicks in power Button
+#    when: short == 2
+#    type: Reboot
+
+
+
+
+# Fan control configuration
+# -------------------------
+fan:
+  # pins valid values 2,3,4 (by default 2) 
+  pins: 4
+  # divisor for rpm computation (by default 2)
+  #divisor: 3
+  # Mode of fan operation
+  # Uncomment and tune one of the modes of operation of the fan.
+  # Mode Off -> Allways off
+  #mode: Off
+  # Mode On -> Allways on full speed
+  #mode: On
+  # Mode Custom -> set a constant custom speed set by custom_value:0-255
+  #mode: Custom
+  #custom_value: 100
+  # Mode Linear -> fan speed respond to lineary to temperature
+  #mode: Linear
+  #thermal_path: /sys/class/thermal/thermal_zone0/temp
+  # linear max & min are in milicelsius as reported by /sys/class/thermal driver
+  #linear_max_temp: 70000
+  #linear_min_temp: 70000
+  # Mode Pi -> Use PI algorithm to regulate temperature to desired temperature set by pi_desired_temp: milicelsius
+  mode: Pi
+  #thermal_path: /sys/class/thermal/thermal_zone0/temp
+  pi_desired_temp: 45500
