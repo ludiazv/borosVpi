@@ -30,7 +30,8 @@ STAT    ?= stat
 ASFLAGS = -plogsgff
 CFLAGS  = -m$(ARCH) -p$(MCU) --std-sdcc99
 CFLAGS += -DF_CPU=$(F_CPU)UL -DBAUDRATE=$(SERIAL_BAUD) -I$(INCDIR) -I$(LIBDIR) $(CFLAGS_EXTRA)
-CFLAGS += --stack-auto --noinduction --opt-code-speed
+CFLAGS += --opt-code-size --stack-auto 
+#CFLAGS += --stack-auto --noinduction --opt-code-size
 #--all-callee-saves --verbose --fverbose-asm --no-peep
 
 LDFLAGS = -m$(ARCH) -l$(ARCH)
@@ -48,7 +49,9 @@ DOBJS    = $(addprefix $(BUILDDIR)/debug/,$(notdir $(FOBJS)) )
 ROBJS   = $(addprefix $(BUILDDIR)/release/,$(notdir $(FOBJS)) )
 #OBJS  += $(SRC:%.s=$(BUILDDIR)/release/%.rel)
 
-
+# tester sources
+PY_SOURCES = misc/ina219.py misc/logging.py misc/pcf8574.py misc/uploader.py misc/vpi.py misc/utelnet.py
+PY_OBJS =$(addprefix $(BUILDDIR)/,$(PY_SOURCES:%.py=%.mpy) )
 
 # Build debug & release
 all: clean debug release
@@ -62,6 +65,8 @@ relase_dir:
 	@mkdir -p $(BUILDDIR)
 	@mkdir -p $(BUILDDIR)/release
 
+test_dir:
+	@mkdir -p $(BUILDDIR)/misc
 
 $(BUILDDIR)/debug/%.rel: **/%.c
 	echo "Compiling debug [$< -> $@]"
@@ -101,15 +106,47 @@ flash: release
 
 flash-remote: release
 	@echo "Uploading Remote..."
-	scp $(BUILDDIR)/release/firmware_boot.bin boros@dulcinea:/home/boros/vpid/firmware.bin
-	ssh dulcinea -t "cd vpid && target/debug/vpidctl firmware firmware.bin"
-	
+	#scp $(BUILDDIR)/release/firmware_boot.bin boros@dulcinea:/home/boros/vpid/firmware.bin
+	#ssh dulcinea -t "cd vpid && target/debug/vpidctl firmware firmware.bin"
+	scp $(BUILDDIR)/release/firmware_boot.bin boros@dulcinea:/home/boros/vpid_bin/firmware.bin
+	ssh dulcinea -t "cd vpid_bin && ./vpidctl firmware firmware.bin"
 
-bootloader: 
+bootloader:
+	@echo "Cleaning and generating OPT bits..."
+	cd bootloader && ./generate_optbits.sh
+	@echo "Flashing OPT bits..."
+	$(FLASH) -c stlinkv2 -p $(MCU) -s opt -w bootloader/rst.bin
+	#@sleep 1 Enable AFR7 is not required in STMS8003 but in other chips yes
+	#@$(FLASH) -c stlinkv2 -p $(MCU) -s opt -w bootloader/beep_enable.bin
+	@rm bootloader/rst.bin bootloader/beep_enable.bin
+	$(FLASH) -c stlinkv2 -p $(MCU) -s opt -r opt.bin
+	@echo "Readed OPT bits"
+	@xxd opt.bin
+	@rm opt.bin
 	@echo "Flashing Bootloader..."
 	$(FLASH) -c stlinkv2 -p $(MCU) -s flash -w bootloader/empty.bin
-	$(FLASH) -c stlinkv2 -p $(MCU) -s flash -w bootloader/i2c-bootloader-0x8300.ihx
+	$(FLASH) -c stlinkv2 -p $(MCU) -s flash -w bootloader/i2c_overwrite_0x8300.ihx
 
+$(BUILDDIR)/%.mpy: %.py
+	@echo "Compile upython [$< -> $@]"
+	@python -m mpy_cross -O3 -o $@ -march=xtensa $<
+
+testboard: test_dir release $(PY_OBJS)
+	@echo "Uploading firmaware to test board [Press reset on the board]..."
+	@cp misc/main.py $(BUILDDIR)/misc/main.py
+	@cp $(BUILDDIR)/release/firmware_boot.bin $(BUILDDIR)/misc/firmware.bin
+	@rshell   -p "$(shell python list_serial.py)"  rsync $(BUILDDIR)/misc /pyboard
+	#@rshell -p "$(shell python list_serial.py)"  cp misc/*.mpy /pyboard/
+	#@rshell -p "$(shell python list_serial.py)"  cp misc/main.py /pyboard/main.py
+	#@rshell -p "$(shell python list_serial.py)"  cp $(BUILDDIR)/release/firmware_boot.bin /pyboard/firmware.bin	
+
+testboard-flash: testboard
+	@echo "Flashing firmware on test board..."
+	#@rshell -p "$(shell python list_serial.py)" cp misc/main.py /pyboard/main.py
+	#@rshell -p "$(shell python list_serial.py)" cp $(BUILDDIR)/release/firmware_boot.bin /pyboard/firmware.bin
+	#@rshell -p "$(shell python list_serial.py)" --quiet "repl ~ import machine ~ machine.reset() ~"
+	@rshell -p "$(shell python list_serial.py)" "repl ~ import main ~ main.upload_firmware()"
+	
 
 qopenocd:
 	@echo "Stopping any openocd running..."

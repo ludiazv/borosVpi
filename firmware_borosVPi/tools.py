@@ -134,6 +134,7 @@ if __name__== "__main__":
 
     # Remove last tool if no debug is wanted    
     if p.build_only is not None:
+        print("Build tools only")
         build_only=True
         del TOOLS[-1]
     
