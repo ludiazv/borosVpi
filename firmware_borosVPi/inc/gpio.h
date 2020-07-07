@@ -17,11 +17,11 @@
  *        leave at reset state 
  * 
  *   PORTC: 
- *      PC3: input floating (external filter circuit )    - enable external interrupt both edges
+ *      PC3: input pull-up - enable external interrupt both edges
  *      PC4: output push-pull low
- *      PC5: input pull-up (no filter circuit implemented) - enable external interrupt both edges 
+ *      PC5: input pull-up - enable external interrupt both edges 
  *      PC6: output pseudo open drain (external pull donw)
- *      PC7: output push-pull low
+ *      PC7: input pull-up - enable external interrupt both edges
  * 
  *   PORTD:
  *      PD1: leave in reset state SWIN will be enabled
@@ -31,21 +31,26 @@
  *      PD5 & PD6: Leave in reset state (UART)
  *   
  *             +-----------------------------+ 
- *    Buzz    -| PD4/BEEP          PD3/T2_CH2|-  LED ---R---- |> ---|
+ *    Buzz    -| PD4/BEEP          PD3/T2_CH2|-  LED ---R---- |led> ---Vdd
  *    TX      -| PD5/TX            PD2       |-  Fan tachometer (internal pull-up) (EXTI3 - Falling)
- *    RX      -| PD6/RX            PD1/SWIM  |-  To header
- *    RST     -| RST               PC7       |-  Boot select boot loader/ in program will be output low (header)
+ *    RX      -| PD6/RX            PD1/SWIM  |-  To header SWIM (for bootloader programming)
+ *    RST     -| RST               PC7       |-  IRQn (input internal pull-up) (EXITI3 - Falling)
  *    X       -| PA1               PC6       |-  Power Switch Mosfet (have 100k pull-down)
  *    X       -| PA2               PC5       |-  Aux Button  (EXTI2  - Both)
- *    GND     -| VSS               PC4       |-  Test point (debug pin 2)
+ *    GND     -| VSS               PC4       |-  Open colector output -> 1k -> Q  (push pull output)
  *    1uF     -| VCAP              PC3       |-  Power button (EXTI2 - Both)
  *    VDD     -| VDD               PB4/SCL   |-  I2C SCL
  *    FANPWM  -| PA3/T2_CH3        PB5/SDA   |-  I2C SDA
  *             +-----------------------------+ 
  * 
  * 
- *   Buttons signal treatment:
- * 
+ *   Buttons signal treatment: 
+ *    The two button entries treat are low leve activated and governed by the following parameter
+ *    - Dt (Debouncing time): Minimal time of low level to be considered as a button push.
+ *                            This parameter is hardcoded in the firmware (DEBOUNCE_MS)
+ *    - St (Short time): Maximun time that will be cosidered as a short click.
+ *    - Pt (sPace time):
+ *    - Ht (Hold time):
  *  
  *  ------                                                                      --------
  *       |                                                                      |
@@ -53,7 +58,8 @@
  *       ===========|=====================|=====================================|
  *          Dt           St                                                     Ht
  * 
- *    
+ *    IRQn:
+ *    IRQn line is active at low level and detect falling edge on the line. 
  * 
  *  
  */
@@ -61,8 +67,11 @@
 // Some defines for readibitly
 #define PWR_BUT_PIN             (3)
 #define AUX_BUT_PIN             (5)
+#define IRQ_PIN                 (7)
+#define OUTPUT_PIN              (4)
 
-#define DEBOUNCE_MS             (25)
+//< Debounce time in milliseconds
+#define DEBOUNCE_MS             (55)
 
 // Button index
 #define PWR_BUT                 (0)
