@@ -10,6 +10,7 @@
  */
 #include "beep.h"
 #include "clock.h"
+#include "dbg.h"
 
 
 static uint16_t beep_time,pause_time;
