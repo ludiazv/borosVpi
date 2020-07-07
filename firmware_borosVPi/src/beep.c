@@ -37,6 +37,7 @@ void init_beep() {
  *  
  */ 
 void start_beep(uint8_t freq,uint8_t count,uint8_t b_time,uint8_t p_time) {
+    BEEP_CSR &= 0x3F;        // Clear freq 0011 1111 -> 3F
     BEEP_CSR |= (freq << 6); // Set frequency mode (0,1,2)
     beep_counter = count;
     beep_time    = b_time * 100; // 1/10th s -> ms
