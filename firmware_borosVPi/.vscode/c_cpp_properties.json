@@ -1,0 +1,11 @@
+{
+    "configurations": [
+      {
+        "name": "Mac",
+        "includePath": ["${workspaceFolder}/inc/", "${workspaceFolder}/lib"]
+
+      }
+    ],
+    "version": 4
+  }
+  
