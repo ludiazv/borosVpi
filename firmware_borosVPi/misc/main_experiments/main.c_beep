@@ -1,0 +1,29 @@
+#include <stm8s.h>
+#include <util.h>
+#include <delay.h>
+
+#include "clock.h"
+#include "gpio.h"
+
+void main() {
+    char freq=0;
+    uint8_t v=0;
+    disable_interrupts();       // Dont interrupt in init
+    init_clocks(); 
+    //CLK_CKDIVR=0; // 16Mhz
+    init_gpio();
+    enable_interrupts();
+    BEEP_CSR= (freq << 6) | (1<<5) | 30;
+    //BEEP_CSR= 0;
+    //BEEP_CSR |=  (1 << 5);
+    while(1) {
+      //__asm__("nop");
+      update_outs(v);
+      BEEP_CSR= (freq << 6) | (1<<5) | 30;
+      //PC_ODR ^= (1<<4);
+      delay(1000);
+      freq++;
+      if(freq>2) freq=0;
+      if(v==0) v=1; else v=0;
+    }
+}
