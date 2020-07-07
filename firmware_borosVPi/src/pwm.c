@@ -68,7 +68,7 @@ void init_pwm() {
     _curr_led_mode=LED_MODE_OFF;
     _curr_fan_val=0;
     _led_dir=1;
-    DBG("PWM started\n\r");
+
 }
 
 // TODO: Refactor to change prescaler and accept lower frequencies to 250Hz
@@ -119,7 +119,7 @@ uint16_t set_pwm_freq(uint16_t freq) {
         set_bit(TIM2_CR1,TIM2_CR1_CEN);  // enable timer
     }
 
-    DBG("PWM freq=%i [prsc=%i,arr=%i]\n\r",freq,_prsc,_arr);
+    //DBG("[PWMfq=%i/prsc=%i,arr=%i/]",freq,_prsc,_arr);
     return freq;
 }
 
