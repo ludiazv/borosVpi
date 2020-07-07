@@ -7,7 +7,7 @@ cache: cargo
 
 script:
   - cd firmware_borosVPi
-  - docker run -it --rm --name tools -v "$PWD":/usr/src/myapp -w /usr/src/myapp python:3.7-slim python tools.py --build-only install 
+  - docker run -it --rm --name tools -v "$PWD":/usr/src/myapp -w /usr/src/myapp python:3.7-slim python tools.py -b install 
   - make release
   - cd ../vpid
   - ./buildall.sh
