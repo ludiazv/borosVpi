@@ -1,54 +1,98 @@
+/**
+ * @file clock.c
+ * @author LDV
+ * @brief   Bare Metal clock control for STM8S: Timebase, High-level watchdog & tachometer.
+ * @details Relevant implementation details:
+ *      - Configure the mcu to run from internal clock high speed HSI (default at boot)
+ *      - 16Mhz master clock:No CPU clock divider F_CPU = 16 Mhz
+ *      - Disable clock for unused perifericals: TIM1,SPI,ADC & AWU (reduce powe consumption)
+ *      - Generate an arduino style time base using the following:
+ * 
+ *          Formula: freq=16Mhz / (2 * prescaler * (ARR+1) ).
+ *          with prescaler 64=>  1000=16000000/(128*(ARR+1)) 
+ *                               (ARR+1)=16000000/128000 = 125 => ARR=124.
+ *
+ *      - Tachometer is implemente via a interrupt counting the pulses of the fan.
+ *        Every 1s the number of pulses are divided by the reolution divisor and extrapolated to RPM.
+ *        RPM= (tick in 1s/ticks per rolution)*60
+ *      - High level watch dog is implemented incrementing _wdg_counter each second. wdg_feed() & wgd_check(ms) can be used to
+ *        reset and test the watchdog status.
+ *      - High level wake control is implemented incr
+ * @version 0.1
+ * 
+ * 
+ * @copyright Copyright LDV (c) 2019
+ * 
+ */
 #include "clock.h"
 
-/// =================================================================
-/**
- * @brief Clock selection, tunning timebase generation and tachometer.
- *      - Run from internal clock high speed HSI (default at boot)
- *      - 16Mhz master clock
- *      - No CPU clock divider F_CPU = 16 Mhz
- *      - Disable clock for unused perifericals: TIM1,SPI,ADC & AWU
- *
- *   Time Base generation with arduino like milis
- * -------------------------------------------------
- *   Time base = 16Mhz / (2*prescaler*(ARR+1)) = 1000Hz (1ms period)
- *               16000000/2000 = p * (ARR+1)
- *               8000 = p * a
- *        p= 128 => a= 8000 / 128 = 62.5 ! not integer
- *        p= 64  => a= 8000 / 64 = 125 -> ARR = 124 (chosen) 
- *        p= 32  => a= 8000 / 32 = 250 -> ARR = 249
- * 
- *   Tachometer fan measurement is estimation counting the ticks 
- *   every second and extrapolate mesure perminute. 
- *      RPM= (tick in 1s/ticks per rolution)*60                 
- */
-
 volatile uint32_t                   _milis;         ///< Milis counter
-//#define  milis()                    (_milis)
 volatile uint16_t                   _seconds;       ///< Second counter
-//#define seconds()                   (_seconds)
+volatile uint16_t                   _minutes;       ///< Minute counter
 volatile static uint16_t            _rpmtick;       ///< Counter of tachometer pulses
 static uint8_t                      _rpmdivider;    ///< RPM divider proxied from registers
+static uint8_t                      _wdg_limit;     ///< limit set for wdg
 volatile static uint8_t             _wdg_counter;   ///< WDG counter
+volatile static uint16_t            _wake_counter;  ///< Wake counter
 
 /**
- * @brief Set the rpm divider for rpm computation.
+ * @brief Set the rpm divider for rpm computation. Controls Div by 0 potential error by assinging 2 to the divider
+ *        if 0 is passed.
  * 
- * @param d u8  divider to use.
- * @return uint8_t divider set
+ * @param d uint8_t  divider to use.
+ * @return  uint8_t divider set
  */
 uint8_t set_rpm_divider(uint8_t d){ 
     _rpmdivider= (d==0) ? 2 : d;
     return _rpmdivider;
 }
+/**
+ * @brief Resets watchdog counter by setting to 0 the _wdg_counter variable.
+ */
 void feed_wdg() {
     _wdg_counter=0;
 }
-uint8_t wdg_check(uint8_t limit) {
-    return limit>0 && _wdg_counter>limit;
-}
-
 /**
- * @brief delay
+ * @brief Start the watchdog
+ * 
+ * @param limit seconds, 0 -> disabled
+ */
+void wdg_start(uint8_t limit) {
+    _wdg_limit=limit;
+    _wdg_counter=0;
+    DBG("[W:%i]",limit);
+}
+/**
+ * @brief Check if the elapsed time since last call to feed_wdg()
+ * 
+ * @return uint8_t boolean if limit time has been reached.
+ * @retval 0 watchdog did not reach the limit
+ * @retval 1 watchdog did reach the limit.
+ */
+uint8_t wdg_check() {
+    /*if(_wdg_limit>0) {
+        DBG("{W%i,%i}",_wdg_limit,_wdg_counter);
+        return VPI_HAS_WDG(vpi_regs) && _wdg_counter >  _wdg_limit;
+    }*/
+    return VPI_HAS_WDG(vpi_regs) && _wdg_limit> 0 && _wdg_counter >  _wdg_limit;
+    //return VPI_HAS_WDG(vpi_regs) && limit>0 && _wdg_counter>limit;
+}
+/** @brief starts wake counter
+ */
+void start_wake() {
+    _wake_counter = 0;
+}
+/** @brief Check if wake counter elapsed 
+ *  @param limit minutes to test againts the wake counter
+ *  @return uint8_t boolean if limit has been reached.
+ *  @retval 0 wake limit han't been reached 
+ *  @retval 1 wake limit has been reached
+ */
+uint8_t wake_check(uint16_t limit) {
+    return limit>0 && VPI_HAS_WAKEEN(vpi_regs) && _wake_counter > limit;
+}
+/**
+ * @brief bussy delay ms.
  * 
  * @param ms u16 time to delay in miliseconds
  */
@@ -58,7 +102,6 @@ void delay(uint16_t ms){
     uint32_t d=milis();
     while((milis()-d)<ms);
 }
-
 /**
  * @brief init_clocks: Initilize clock and time base using timer 4.
  *  Implementation:
@@ -69,7 +112,7 @@ void delay(uint16_t ms){
  *          with prescaler 64=>  1000=16000000/(128*(ARR+1)) 
  *                               (ARR+1)=16000000/128000 = 125 => ARR=124.
  * 
- *      - Se
+ *      - Set ISR for timer 4 to priority 2. This interrupt will be prioritary.
  */
 void init_clocks() {
 
@@ -84,9 +127,9 @@ void init_clocks() {
     //   0    0    1    1    1      1    0   1
     //CLK_PCKENR1 = 0xff;
     CLK_PCKENR1 = 0b00111101;
-    // (R,R,R,R,ADC,AWU,R,R)
+    // (R,R,R,R,ADC,AWU,R,R)  AWU is needed for BEEP
     //  0 0 0 0  0   0  0 0
-    CLK_PCKENR2 = 0;
+    CLK_PCKENR2 = 0b100;
 
         // In CCO mode output Master clock to CCO output
 #if defined(VPI_CCO)
@@ -120,11 +163,13 @@ void init_clocks() {
      // Init all control variables
     _milis=0;
     _seconds=0;
+    _minutes=0;
     _rpmtick=0;
     _rpmdivider=2;  // default 2 ticks per rpm
     _wdg_counter=0; // wdg_counter
+    _wake_counter=0; // wakecounter 
+    _wdg_limit=0;    // wdg limit
 }
-
 /**
  * @brief Time base iterruput rutine.
  *   Timer4 overflow every 1ms and millis tick variable is incremented.
@@ -134,9 +179,10 @@ void init_clocks() {
  * 
  *   Timer ISR have more priority than EXTI interrupt rpmtick will not be modified.
  *   vpi_reg divider can be modified in the I2C interrupt rutine therefore captured with 
- *   intettupts masked.
+ *   intettupts masked calling set_rpm_divider(uint8_t d).
  * 
  */
+#pragma opt_code_speed
 void timer_isr(void) __interrupt(TIM4_ISR) {
 
     //PC_ODR ^= (1<<4); 
@@ -144,25 +190,26 @@ void timer_isr(void) __interrupt(TIM4_ISR) {
     if((_milis % 1000)==0) {
         _seconds++;
         _wdg_counter++;
-        if(_rpmtick>0) {
-            vpi_regs.rpm = (_rpmtick/_rpmdivider)*60; // Compute rpm
+        if(_rpmtick>0 && (_seconds & 1)) { // compute rpm every 2 seconds
+            vpi_regs.rpm = (_rpmtick/_rpmdivider)*30; // Compute rpm
+            vpi_regs.status |= VPI_RPM_FLAG; // Set flags
             _rpmtick = 0; // reset counter
+        }
+        if((_seconds % 60)==0) {
+            _minutes++;
+            _wake_counter++;
         }
     }
     TIM4_SR &= ~(1 << TIM4_SR_UIF); // Clear update flag
 }
-
 /**
  * @brief EXTI configured in PD port simply add to the counter of tachometer ticks.
  *    Tick counter is reset every 1 second in the timer_isr ISR rutine
- * 
  */
+#pragma opt_code_speed
 void tachometer_isr(void) __interrupt(EXTI3_ISR) {
      _rpmtick++;
 }
-/*
- * =============== END CLOCK ====================
- */
 
 
 
