@@ -3,11 +3,21 @@ dist: xenial
 services:
   - docker
 language: rust
-cache: cargo
+cache: 
+  cargo: true
+  directories:
+    - /home/travis/borosVpi/firmware_borosVPi/toolchain/linux_x86_64
 
 script:
+  - mkdir -p dist
   - cd firmware_borosVPi
-  - docker run -it --rm --name tools -v "$PWD":/usr/src/myapp -w /usr/src/myapp python:3.7-slim python tools.py -b install 
-  - make release
-  - cd ../vpid
-  - ./buildall.sh
+  - docker run -it --rm --name tools -v "$PWD":/usr/src/myapp -w /usr/src/myapp python:3.7-slim python tools.py -b install
+  - echo -e '#include <stdio.h>\n#include "inc/version.h"\n int main() { printf("%i\\n",); }' > fwver.c
+  - docker run -it --rm -v "$PWD":/tmp frolvlad/alpine-gcc gcc --static /tmp/fwver.c -o /tmp/fwver
+  - make release && mv build/release/firmware_boot.bin ../dist/firmware-v$(./fwver).bin
+  - make clean && make VPI_TRACE=Yes release && mv build/release/firmware_boot.bin ../dist/firmware-traces-v$(./fwver).bin
+  - make clean
+  - cd ..
+  - ls -l dist/*
+  - cd vpid
+  - ./buildall.sh travis
