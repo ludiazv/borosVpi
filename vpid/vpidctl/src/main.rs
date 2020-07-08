@@ -10,7 +10,7 @@ use serde_json;
 
 
 use clap::{App, SubCommand};
-const VERSION :&'static str= "0.1";
+//const VERSION :&'static str= "0.1";
 
 fn show_error(e : & dyn std::error::Error) -> ! {
     eprintln!("{} => {}", Red.paint("ERROR"), e);
@@ -39,7 +39,7 @@ fn show_error_json(j:&String) -> ! {
 fn main() {
 
     let matches = App::new("vpidctl")
-                          .version(VERSION)
+                          .version(crate_version!())
                           .author("LDV")
                           .about("Command line tool for vpid")
                           .subcommand(SubCommand::with_name("cmd")
