@@ -8,7 +8,8 @@ use std::io::{Write,Read};
 use std::os::unix::net::UnixStream;
 use serde_json;
 
-
+#[macro_use]
+extern crate clap;
 use clap::{App, SubCommand};
 //const VERSION :&'static str= "0.1";
 
@@ -37,9 +38,9 @@ fn show_error_json(j:&String) -> ! {
 }
 
 fn main() {
-
+    let VERSION = crate_version!();
     let matches = App::new("vpidctl")
-                          .version(crate_version!())
+                          .version(VERSION)
                           .author("LDV")
                           .about("Command line tool for vpid")
                           .subcommand(SubCommand::with_name("cmd")
