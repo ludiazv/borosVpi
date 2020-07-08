@@ -84,9 +84,9 @@ assets = [
 EOF
     #cross deb --no-build --target=$i --verbose --manifest-path=./vpid/Cargo.toml
     if [ "$1" == "travis" ] ; then
-        cross deb -- version
+        cargo deb --version
         strip target/$i/release/vpidctl
-        cross deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml
+        cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml
     else
         docker run -it --userns=host --rm -w /project -v $(pwd):/project vpi-packager \
                sh -c "cargo deb --version && strip target/$i/release/vpidctl && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml"
