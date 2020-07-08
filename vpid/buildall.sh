@@ -1,7 +1,10 @@
 #!/bin/bash
 
+set -e
+
 if [[ "$1" == "travis" ]] ; then
-    ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
+    #ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
+    ARCHS=( "armv7-unknown-linux-gnueabihf" )
 else
     ARCHS=( "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl")
 fi
@@ -18,7 +21,7 @@ fi
 
 echo "Vpi cross compilation script..."
 echo "==============================="
-printf "Check cross tools..."
+printf "Check cross tool..."
 cargo install --list | grep cross
 if [ $? -ne 0 ] ; then
     echo "not installed. force install"  
@@ -26,6 +29,9 @@ if [ $? -ne 0 ] ; then
 else
     echo "Installed!"
 fi
+printf "Cross version in use:"
+CROSS_VERSION=$(cross --version | grep cross | cut -d ' ' -f 2)
+echo $CROSS_VERSION
 
 if [ "$1" == "travis" ] ; then
     printf "Check for cargo-deb ..."
@@ -36,6 +42,7 @@ if [ "$1" == "travis" ] ; then
     else
         echo "Installed!"
     fi
+    cargo deb --version
 else
     printf "Check docker image for packager tool..."
     docker images | grep vpi-packager
@@ -49,13 +56,23 @@ else
     fi
 fi
 
+printf "Start building vpid + vpidctl version:"
+VPID_VERSION=$(cargo pkgid -v --manifest-path ./vpid/Cargo.toml | cut -d \# -f 2)
+echo "$VPID_VERSION"
+
 echo "Building release versions...."
 for i in "${ARCHS[@]}"
 do
     echo "Building for Release $i"
     cross build --target=$i --release
+    if [ $? -eq 0 ] ; then
+        echo "Strip release binaries for $i"
+        docker run --it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip /project/vpid
+        docker run --it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip /project/vpidctl
+    fi
 done
 
+set +e
 mv vpid/Cargo.toml vpid/Cargo.toml.bup
 
 for i in "${ARCHS[@]}"
@@ -79,14 +96,16 @@ assets = [
     ["../target/$i/release/vpid", "usr/bin/", "755"],
 	["../target/$i/release/vpidctl", "usr/bin/","775"],
 	["../assets/vpid.yml","etc/vpid/","666"],
+    ["../assets/vpidEnv","etc/vpid/,"666"],
     ["../assets/vpid.service","lib/systemd/system/","644"]
 ]
 EOF
     #cross deb --no-build --target=$i --verbose --manifest-path=./vpid/Cargo.toml
     if [ "$1" == "travis" ] ; then
-        cargo deb --version
-        strip target/$i/release/vpidctl
-        cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml
+        T=$(echo "$i" | cut -d '-' -f 1,4)
+        DEBV=${VPID_VERSION}_${T}
+        echo "Using sitetic package version as $DEBV"
+        cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml --deb-version $DEBV
     else
         docker run -it --userns=host --rm -w /project -v $(pwd):/project vpi-packager \
                sh -c "cargo deb --version && strip target/$i/release/vpidctl && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml"
