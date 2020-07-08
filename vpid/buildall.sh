@@ -1,7 +1,20 @@
 #!/bin/bash
 
-#ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" )
-ARCHS=( "arm-unknown-linux-musleabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl")
+if [[ "$1" == "travis" ]] ; then
+    ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" )
+else
+    ARCHS=( "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl")
+fi
+
+if [[ "$1" == "clean" ]] ; then
+    echo "Clean all build artifacts and bodcker images..."
+    cargo clean
+    docker rmi $(docker images "rustembedded/cross"  --format "{{.ID}}")
+    docker rmi $(docker images "arm64v8/rust"  --format "{{.ID}}")
+    docker rmi vpi-packager
+    docker image prune
+    exit 0
+fi
 
 echo "Vpi cross compilation script..."
 echo "==============================="
@@ -13,20 +26,60 @@ if [ $? -ne 0 ] ; then
 else
     echo "Installed!"
 fi
-printf "Check cargo-deb tool..."
-cargo install --list | grep cargo-deb
+printf "Check docker image for packager tool..."
+docker images | grep vpi-packager
 if [ $? -ne 0 ] ; then
-    echo "not installed. force install"
-    cargo install cargo-deb --force
+    echo "not installed. Building docker image this take a while "
+    pushd scripts
+        docker build -t vpi-packager .
+    popd
 else
     echo "Installed!"
 fi
 
+echo "Building release versions...."
 for i in "${ARCHS[@]}"
 do
     echo "Building for Release $i"
     cross build --target=$i --release
 done
+
+mv vpid/Cargo.toml vpid/Cargo.toml.bup
+
+for i in "${ARCHS[@]}"
+do
+    echo "Packaging deb for $i"
+    cat vpid/Cargo.toml.bup > vpid/Cargo.toml
+    # Create a dynamic manifest for 
+    cat <<EOF >> vpid/Cargo.toml
+
+[package.metadata.deb]
+name = "vpid"
+maintainer = "LDV"
+copyright = "2019-2020, LDV"
+#license-file = ["LICENSE", "3"]
+depends = "$auto, systemd"
+extended-description = """\
+User-space daemon for VPi mini board for controling the buttons and perfiphericals of the board."""
+section = "utils"
+priority = "optional"
+assets = [
+    ["../target/$i/release/vpid", "usr/bin/", "755"],
+	["../target/$i/release/vpidctl", "usr/bin/","775"],
+	["../assets/vpid.yml","etc/vpid/","666"],
+    ["../assets/vpid.service","lib/systemd/system/","644"]
+]
+EOF
+    #cross deb --no-build --target=$i --verbose --manifest-path=./vpid/Cargo.toml
+    docker run -it --userns=host --rm -w /project -v $(pwd):/project vpi-packager \
+           sh -c "cargo deb --version && strip target/$i/release/vpidctl && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml"
+           # --user $(id -u):$(id -g)
+
+done
+
+rm vpid/Cargo.toml
+mv vpid/Cargo.toml.bup vpid/Cargo.toml 
+
 
 echo "==============================="
 exit 0

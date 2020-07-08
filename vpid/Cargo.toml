@@ -4,3 +4,5 @@ members = [ "vpi",
 	    "vpid" 
 ]
 
+[profile.release]
+lto = true
