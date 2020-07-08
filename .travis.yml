@@ -5,8 +5,8 @@ services:
 language: rust
 cache: 
   cargo: true
-#  directories:
-#    - /home/travis/borosVpi/firmware_borosVPi/toolchain/linux_x86_64
+  directories:
+    - /home/travis/borosVpi/vpid/target
 
 script:
   - mkdir -p dist
