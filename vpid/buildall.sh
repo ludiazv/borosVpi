@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [[ "$1" == "travis" ]] ; then
-    ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" )
+    ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
 else
     ARCHS=( "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl")
 fi
@@ -26,15 +26,27 @@ if [ $? -ne 0 ] ; then
 else
     echo "Installed!"
 fi
-printf "Check docker image for packager tool..."
-docker images | grep vpi-packager
-if [ $? -ne 0 ] ; then
-    echo "not installed. Building docker image this take a while "
-    pushd scripts
-        docker build -t vpi-packager .
-    popd
+
+if [ "$1" == "travis" ] ; then
+    printf "Check for cargo-deb ..."
+    cargo install --list | grep cargo-deb
+    if [ $? -ne 0 ] ; then
+        echo "not installed. force install"  
+        cargo install cargo-deb --force
+    else
+        echo "Installed!"
+    fi
 else
-    echo "Installed!"
+    printf "Check docker image for packager tool..."
+    docker images | grep vpi-packager
+    if [ $? -ne 0 ] ; then
+        echo "not installed. Building docker image this take a while "
+        pushd scripts
+            docker build -t vpi-packager .
+        popd
+    else
+        echo "Installed!"
+    fi
 fi
 
 echo "Building release versions...."
@@ -71,9 +83,15 @@ assets = [
 ]
 EOF
     #cross deb --no-build --target=$i --verbose --manifest-path=./vpid/Cargo.toml
-    docker run -it --userns=host --rm -w /project -v $(pwd):/project vpi-packager \
-           sh -c "cargo deb --version && strip target/$i/release/vpidctl && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml"
+    if [ "$1" == "travis" ] ; then
+        cross deb -- version
+        strip target/$i/release/vpidctl
+        cross deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml
+    else
+        docker run -it --userns=host --rm -w /project -v $(pwd):/project vpi-packager \
+               sh -c "cargo deb --version && strip target/$i/release/vpidctl && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml"
            # --user $(id -u):$(id -g)
+    fi
 
 done
 
