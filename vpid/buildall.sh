@@ -56,6 +56,9 @@ else
     fi
 fi
 
+echo "Cargo update to generate Cargo.lock"
+cargo update
+
 printf "Start building vpid + vpidctl version:"
 VPID_VERSION=$(cargo pkgid -v --manifest-path ./vpid/Cargo.toml | cut -d \# -f 2)
 echo "$VPID_VERSION"
@@ -67,8 +70,8 @@ do
     cross build --target=$i --release
     if [ $? -eq 0 ] ; then
         echo "Strip release binaries for $i"
-        docker run --it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip /project/vpid
-        docker run --it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip /project/vpidctl
+        docker run -it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpid
+        docker run -it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpidctl
     fi
 done
 
