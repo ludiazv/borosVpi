@@ -16,8 +16,9 @@ script:
   - docker run -it --rm -v "$PWD":/tmp frolvlad/alpine-gcc gcc --static /tmp/fwver.c -o /tmp/fwver
   - make release && mv build/release/firmware_boot.bin ../dist/firmware-v$(./fwver).bin
   - make clean && make VPI_TRACE=Yes release && mv build/release/firmware_boot.bin ../dist/firmware-traces-v$(./fwver).bin
-  - make clean
+  - make clean && docker rmi python:3.7-slim && docker rmi frolvlad/alpine-gcc && docker purge
   - cd ..
   - ls -l dist/*
   - cd vpid
+  - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
   - ./buildall.sh travis
