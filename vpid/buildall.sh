@@ -2,11 +2,13 @@
 
 set -e
 
+STRIP_BASE="aarch64-unknown-linux-gnu"
+
 if [[ "$1" == "travis" ]] ; then
     #ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
     ARCHS=( "armv7-unknown-linux-gnueabihf" )
 else
-    ARCHS=( "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl")
+    ARCHS=( "armv7-unknown-linux-gnueabihf" "aarch64-unknown-linux-gnu" )
 fi
 
 if [[ "$1" == "clean" ]] ; then
@@ -70,8 +72,9 @@ do
     cross build --target=$i --release
     if [ $? -eq 0 ] ; then
         echo "Strip release binaries for $i"
-        #docker run -it --rm -v $(pwd)/target/$i/release:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpid
-        #docker run -it --rm -v $(pwd)/target/$i/release:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpidctl
+        STRIP="/usr/bin/aarch64-linux-gnu-strip"
+        docker run -it --rm -v $(pwd)/target/$i/release:/project  rustembedded/cross:$STRIP_BASE-$CROSS_VERSION $STRIP -v /project/vpid
+        docker run -it --rm -v $(pwd)/target/$i/release:/project  rustembedded/cross:$STRIP_BASE-$CROSS_VERSION $STRIP -v /project/vpidctl
     fi
 done
 
@@ -99,25 +102,26 @@ assets = [
     ["../target/$i/release/vpid", "usr/bin/", "755"],
 	["../target/$i/release/vpidctl", "usr/bin/","775"],
 	["../assets/vpid.yml","etc/vpid/","666"],
-    ["../assets/vpidEnv","etc/vpid/,"666"],
+    ["../assets/vpidEnv","etc/vpid/","666"],
     ["../assets/vpid.service","lib/systemd/system/","644"]
 ]
 EOF
     #cross deb --no-build --target=$i --verbose --manifest-path=./vpid/Cargo.toml
+    T=$(echo "$i" | cut -d '-' -f 1,4)
+    DEBV=${VPID_VERSION}_${T}
+    echo "Using sintetic package version as $DEBV"
     if [ "$1" == "travis" ] ; then
-        T=$(echo "$i" | cut -d '-' -f 1,4)
-        DEBV=${VPID_VERSION}_${T}
-        echo "Using sitetic package version as $DEBV"
         cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml --deb-version $DEBV
     else
         docker run -it --userns=host --rm -w /project -v $(pwd):/project vpi-packager \
-               sh -c "cargo deb --version && strip target/$i/release/vpidctl && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml"
+               sh -c "cargo deb --version && cargo deb --no-build --verbose --target=$i --manifest-path=./vpid/Cargo.toml --deb-version $DEBV"
            # --user $(id -u):$(id -g)
     fi
 
 done
 
 rm vpid/Cargo.toml
+#mv vpid/Cargo.toml used.toml
 mv vpid/Cargo.toml.bup vpid/Cargo.toml 
 
 
