@@ -70,8 +70,8 @@ do
     cross build --target=$i --release
     if [ $? -eq 0 ] ; then
         echo "Strip release binaries for $i"
-        docker run -it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpid
-        docker run -it --rm -v $(pwd)/target/$i:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpidctl
+        docker run -it --rm -v $(pwd)/target/$i/release:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpid
+        docker run -it --rm -v $(pwd)/target/$i/release:/project  rustembedded/cross:$i-$CROSS_VERSION strip -v /project/vpidctl
     fi
 done
 
