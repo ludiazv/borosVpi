@@ -6,7 +6,7 @@ language: rust
 cache: 
   cargo: true
   directories:
-    - /home/travis/borosVpi/vpid/target
+    - /home/travis/build/ludiazv/borosVpi/vpid/target
 
 script:
   - mkdir -p dist
@@ -22,3 +22,4 @@ script:
   - cd vpid
   #- docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
   - ./buildall.sh travis
+  - ls -R target/
