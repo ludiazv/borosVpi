@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 STRIP_BASE="aarch64-unknown-linux-gnu"
 
