@@ -15,13 +15,26 @@ import tarfile
 import shutil
 import platform
 
+#import ssl
+#ssl._create_default_https_context = ssl._create_unverified_context
+
 # No windows yet
-OSES=["linux_x86_64","darwin_x86_64","linux_i686","darwin_i386"]
+OSES=["linux_x86_64","darwin_x86_64"]
 PIO_MAN="https://dl.platformio.org/packages/manifest.json"
 OPENOCD_REPO="https://api.github.com/repos/gnu-mcu-eclipse/openocd/releases/latest"
+#SDCC_URL= { "darwin_x86_64" : "http://netix.dl.sourceforge.net/project/sdcc/sdcc-macos-amd64/4.0.0/sdcc-4.0.0-x86_64-apple-macosx.tar.bz2" , 
+#            "linux_x86_64" : "http://netcologne.dl.sourceforge.net/project/sdcc/sdcc-linux-amd64/4.0.0/sdcc-4.0.0-amd64-unknown-linux2.5.tar.bz2" 
+#}
+
+SDCC_URL= { "darwin_x86_64" : "https://sourceforge.net/projects/sdcc/files/sdcc-macos-amd64/4.0.0/sdcc-4.0.0-x86_64-apple-macosx.tar.bz2" , 
+            "linux_x86_64" : "https://sourceforge.net/projects/sdcc/files/sdcc-linux-amd64/4.0.0/sdcc-4.0.0-amd64-unknown-linux2.5.tar.bz2" 
+}
+
+
 
 # Tools =( tool , min version)
-TOOLS=[("tool-stm8binutils","0.230.0"),("toolchain-sdcc","1.30804.10766"),("tool-stm8tools","0.40.181218"),]
+# TOOLS=[("tool-stm8binutils","0.230.0"),("toolchain-sdcc","1.30804.10766"),("tool-stm8tools","0.40.181218"),]
+TOOLS=[("tool-stm8binutils","0.230.0"),("tool-stm8tools","0.40.181218"),]
 # Dirs
 TOOL_DIR="toolchain"
 build_only=False
@@ -53,6 +66,10 @@ def install_package(name,os_dir,url):
         tar = tarfile.open(dest, "r:gz")
         tar.extractall(dest_dir)
         tar.close()
+    elif (dest.endswith("tar.bz2") or dest.endswith(".tbz2")):
+        tar = tarfile.open(dest,"r:bz2")
+        tar.extractall(dest_dir)
+        tar.close()
     elif (dest.endswith("tar")):
         tar = tarfile.open(dest, "r:")
         tar.extractall(dest_dir)
@@ -70,7 +87,20 @@ def install(dos):
         return
         #uninstall()
 
-    print("Dowload PIO manifest....")
+    print("Download SDDC from SDDC repository...")
+    url=SDCC_URL[dos]
+    if url is not None:
+        install_package("tmp",".",url)
+        src=os.path.join(TOOL_DIR,"tmp")
+        sdccdir=os.listdir(src)[0]
+        shutil.move(os.path.join(src,sdccdir),os.path.join(TOOL_DIR,dos,"toolchain-sdcc"))
+        shutil.rmtree(os.path.join(TOOL_DIR,"tmp"))
+    else:
+        print("SDDC from source not supported for %s" % (dos)) 
+        return
+    
+
+    print("Download PIO manifest for other tools....")
     manr= urlopen(PIO_MAN)
     try:
         m = json.loads(manr.read().decode(manr.info().get_param('charset') or 'utf-8'))
@@ -129,11 +159,12 @@ if __name__== "__main__":
     parser.add_argument("-b","--build-only", action="store_true", help="Not install flash and debug tools")
     p=parser.parse_args()
     
+    print(p)
     if p.os is not None:
         def_os = p.os
 
     # Remove last tool if no debug is wanted    
-    if p.build_only is not None:
+    if p.build_only:
         print("Build tools only")
         build_only=True
         del TOOLS[-1]
