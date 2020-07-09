@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-set -x
 
 STRIP_BASE="aarch64-unknown-linux-gnu"
 
@@ -27,8 +25,10 @@ echo "==============================="
 printf "Check cross tool..."
 cargo install --list | grep cross
 if [ $? -ne 0 ] ; then
+    set -e
     echo "not installed. force install"  
     cargo install cross --force
+    set +e
 else
     echo "Installed!"
 fi
@@ -40,8 +40,10 @@ if [ "$1" == "travis" ] ; then
     printf "Check for cargo-deb ..."
     cargo install --list | grep cargo-deb
     if [ $? -ne 0 ] ; then
+        set -e
         echo "not installed. force install"  
         cargo install cargo-deb --force
+        set +e
     else
         echo "Installed!"
     fi
@@ -59,6 +61,7 @@ else
     fi
 fi
 
+set -e
 echo "Cargo update to generate Cargo.lock"
 cargo update
 
