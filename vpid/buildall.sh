@@ -4,10 +4,15 @@
 STRIP_BASE="aarch64-unknown-linux-gnu"
 
 if [[ "$1" == "travis" ]] ; then
-    #ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
-    ARCHS=( "armv7-unknown-linux-gnueabihf" )
+    ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
+    #ARCHS=( "armv7-unknown-linux-gnueabihf" )
 else
     ARCHS=( "armv7-unknown-linux-gnueabihf" "aarch64-unknown-linux-gnu" )
+fi
+
+if [[ "$2" == "archs" ]] ; then
+    echo "${ARCHS[@]}"
+    exit 0
 fi
 
 if [[ "$1" == "clean" ]] ; then

@@ -15,11 +15,11 @@ script:
   - echo -e '#include <stdio.h>\n#include "inc/version.h"\n int main() { printf("%i\\n",VPI_VERSION); return 0; }' > fwver.c
   - docker run -it --rm -v "$PWD":/tmp frolvlad/alpine-gcc gcc --static /tmp/fwver.c -o /tmp/fwver
   - make release && mv build/release/firmware_boot.bin ../dist/firmware-v$(./fwver).bin
-  - export VPI_TRACE=Yes && make clean && make release && mv build/release/firmware_boot.bin ../dist/firmware-traces-v$(./fwver).bin
+  - export VPI_TRACES=Yes && make clean && make release && mv build/release/firmware_boot.bin ../dist/firmware-traces-v$(./fwver).bin
   - make clean && docker rmi python:3.7-slim && docker rmi frolvlad/alpine-gcc
   - cd ..
   - ls -l dist/*
   - cd vpid
   #- docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
   - ./buildall.sh travis
-  - ls -R target/
+  - ./create_release.sh
