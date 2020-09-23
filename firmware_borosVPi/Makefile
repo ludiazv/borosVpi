@@ -146,7 +146,11 @@ testboard-flash: testboard
 	#@rshell -p "$(shell python list_serial.py)" cp $(BUILDDIR)/release/firmware_boot.bin /pyboard/firmware.bin
 	#@rshell -p "$(shell python list_serial.py)" --quiet "repl ~ import machine ~ machine.reset() ~"
 	@rshell -p "$(shell python list_serial.py)" "repl ~ import main ~ main.upload_firmware()"
-	
+
+testboard-shell:
+	@rshell -p "$(shell python list_serial.py)" cp misc/main.py /pyboard/main.py
+	@rshell -p "$(shell python list_serial.py)" repl
+
 
 qopenocd:
 	@echo "Stopping any openocd running..."
