@@ -77,6 +77,11 @@ impl VpiFanConfig {
             self.divisor
         }
     }
+    /// Force fan regulation to fixed value.
+    pub fn set_fan(&mut self,val:u8) {
+        self.mode = VpiFanMode::Custom;
+        self.custom_value=val;
+    }
     /// Regulate fan based on selected mode
     pub fn regulate(&mut self) -> u8 {
 
@@ -106,7 +111,7 @@ impl VpiFanConfig {
                     let idiff= (self.pi_sum as f32) * self.ki;
                     match pdiff + idiff {
                         n if n>0.0 && n<255.0 =>  n as u8,
-                        n if n<0.0  => { self.pi_sum=0; 0u8 },
+                        n if n<=0.0  => { self.pi_sum=0; 0u8 },
                         n if n>255.0 => 255u8,
                         _ => 0u8
                     }
