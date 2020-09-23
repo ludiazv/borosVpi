@@ -1,35 +1,48 @@
-//! # Configuration module
-//!  Load configuration file and 
+/// Configuration module for vpid
+/// Abstract & parse configuration options
 use serde::Deserialize;
 use serde_piecewise_default::DeserializePiecewiseDefault;
-
 use std::path::{PathBuf};
 use std::fs;
 use vpi::VpiTimes;
 
+// Crate used
 use crate::fan::VpiFanConfig;
 use crate::error::{Result,ResultExt,ReadConfig,ParseConfig};
 
+/// Rule types
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 pub enum VpiRuleType {
+    /// Execute system shutdown (lauch command)
     Shutdown,
+    /// Execute system Reboot
     Reboot,
+    /// Run shell script
     Shell,
+    /// Run Lua script
     Lua,
+    // No operation rule
     Nop
 }
 
-
+/// Definiton of a Vpid Rule
 #[derive(DeserializePiecewiseDefault, PartialEq, Eq, Debug)]
 pub struct VpiRule {
+    /// Name of the rule for reference
     pub name:    String,
+    /// Condition of the rule (expression)
     pub when:    String, 
+    /// Kind of the rule see *VpiRuleType*
     pub kind:    VpiRuleType,
+    /// Script to execute (Lua or shell)
     pub script:  Option<String>,
+    /// Run shell script asyncronous (only apply to shellscripts)
     pub asyncr:  bool,
+    /// Script execution timeout
     pub timeout: u32,
 }
 
+/// Default trait implementation for VpiRule
 impl Default for VpiRule {
     fn default() -> VpiRule {
         VpiRule {
@@ -43,6 +56,22 @@ impl Default for VpiRule {
     }
 }
 
+/// Minservice definition in lua
+#[derive(DeserializePiecewiseDefault, PartialEq, Eq, Debug)]
+pub struct VpiMiniService {
+    pub name: String,
+    pub script: String,
+}
+///Default implementa for VpiMiniService
+impl Default for VpiMiniService {
+    fn default() -> Self {
+        Self {
+            name: "no name-miniservice".to_string(),
+            script: r#"print("Empty mini service - Hi from lua")"#.to_string(),
+        }
+    }
+}
+/// Configurarion file structure 
 #[derive(DeserializePiecewiseDefault, Debug)]
 pub struct VpiConfig {
     pub shutdown_command:   String,
@@ -59,6 +88,7 @@ pub struct VpiConfig {
     pub watchdog_autofeed:  bool,
     pub rules:              Vec<VpiRule>,
     pub fan:                Option<VpiFanConfig>,
+    pub services:           Vec<VpiMiniService>,
 }
 
 // Just retrun default values
@@ -79,6 +109,7 @@ impl Default for VpiConfig {
             fan:        None,
             wake:       0u16,
             wake_irq:   false,
+            services:   vec!(),
 
         }
     }
