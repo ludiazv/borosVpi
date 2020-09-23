@@ -1,11 +1,10 @@
 #!/bin/bash
 
-
+# image to use the binaries once creating debs 
 STRIP_BASE="aarch64-unknown-linux-gnu"
 
 if [[ "$1" == "travis" ]] ; then
     ARCHS=( "armv7-unknown-linux-gnueabihf" "armv7-unknown-linux-musleabihf" "aarch64-unknown-linux-musl" "aarch64-unknown-linux-gnu" "arm-unknown-linux-musleabihf" "arm-unknown-linux-gnueabihf")
-    #ARCHS=( "armv7-unknown-linux-gnueabihf" )
 else
     ARCHS=( "armv7-unknown-linux-gnueabihf" "aarch64-unknown-linux-gnu" )
 fi
@@ -59,7 +58,7 @@ else
     if [ $? -ne 0 ] ; then
         echo "not installed. Building docker image this take a while "
         pushd scripts
-            docker build -t vpi-packager .
+            docker build -t vpi-packager -f scripts/Dockerfile .
         popd
     else
         echo "Installed!"
