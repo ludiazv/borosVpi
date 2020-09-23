@@ -5,7 +5,10 @@ extern crate log;
 extern crate simple_logger;
 #[macro_use]
 extern crate crossbeam_channel;
+#[macro_use]
+extern crate clap;
 
+use simple_logger::SimpleLogger;
 use std::path::PathBuf;
 use std::str::FromStr;
 use clap::App;
@@ -13,15 +16,15 @@ use std::thread;
 use std::time::{Duration,Instant};
 use crossbeam_channel::{bounded,tick,never,Sender,Receiver};
 use signal_hook::{iterator::Signals, SIGTERM, SIGHUP, SIGINT};
-use std::sync::{Arc, Mutex};
 use std::process::exit;
+use std::collections::HashMap;
+use serde_json::json;
 
 // Internal
-use vpi::{Vpi,VpiStatus,VpiTimes};
+use vpi::{Vpi};//,VpiStatus,VpiTimes};
 use vpi::cmd::{VpiCmd};
 use cmd::{VpiCommand,VpiCommandBody};
 use config::VpiConfig;
-//use fan::VpiFanConfig;
 use engine::{Engine};
 use crate::error::{Result,ResultExt,I2cOpen,VpiConfigureError};
 
@@ -32,13 +35,15 @@ mod fan;
 mod sock;
 mod engine;
 mod cmd;
+mod display;
 
 // Constant
-const VPID_VERSION :&'static str = "0.1.0";
+const VPID_VERSION :&'static str = "0.1.1";
 
 fn main() -> ! {
+    let version = crate_version!();
     let matches = App::new("vpid")
-                          .version(VPID_VERSION)
+                          .version(version)
                           .author("LDV")
                           .about("vpi daemon")
                           .args_from_usage(
@@ -56,7 +61,8 @@ fn main() -> ! {
     let address  =  vpi::from_str_address(address_s).unwrap_or(0x33u8);
 
     // Init log
-    simple_logger::init_by_env();
+    //simple_logger::init_by_env();
+    SimpleLogger::from_env().init().unwrap();
     info!("Vpid daemon init {}",VPID_VERSION);
     info!("Parameters => socket:{}, config file path:{}, device:{}, address:0x{:02X}",socket_path,cfg_file,device_s,address);
     // Check device
@@ -103,7 +109,7 @@ fn main() -> ! {
     });
     info!("Signal manager started!");
     // Launch server daemon
-    info!("Activating daemon");
+    info!("Staring the service");
     let mut return_code:i32=0;
     loop {
         let res = serve(&cfg_path,&device,address,&command_sender,&command_receiver);
@@ -137,12 +143,11 @@ fn serve(cfg_file : &PathBuf,
     let mut vpi=Vpi::new(Some(addr as u16),false);
     vpi.open(device).context( I2cOpen { dev: device, addr: vpi.get_addr() } )?;
     let mut last_status = vpi.check_status(0).context(I2cOpen { dev: device, addr: vpi.get_addr() } )?;
-    let mut last_stats = vpi.get_stats();
-    // apply config and boot
-    //let timing=VpiCmd::from_string(format!("timing {} {} {} {}",cfg.short_time,cfg.space_time,cfg.hold_time,cfg.grace_time)).unwrap();
-    //command_sender.send(VpiCommand::new_nbc(timing));
     
-    
+    // Set up key storage
+    let mut key_storage: HashMap<String,String> = HashMap::new();
+    info!("Key storage initialized");
+
     // Set up timers
     let monitor= tick(cfg.get_poll_time()); // tick(Duration::from_secs(1));
     let mut auto_feed : Receiver<Instant>=never::<Instant>(); // initialy off
@@ -155,11 +160,8 @@ fn serve(cfg_file : &PathBuf,
         vpi.pwm_freq(fan.get_pwmfreq()).rev_divisor(fan.get_divisor());
         fan_control = tick(Duration::from_secs(3));  
     }
-    // WDG 
-    
-
     // Times
-    vpi.timings(&VpiTimes::new(cfg.short_time, cfg.space_time, cfg.hold_time, cfg.grace_time));
+    vpi.timings(&cfg.times());
     info!("Set button timmings short:{} ms space:{} ms hold:{} s",cfg.short_time,cfg.space_time,cfg.hold_time);
     info!("Set shutdown grace time to {} s",cfg.grace_time);
    
@@ -171,7 +173,9 @@ fn serve(cfg_file : &PathBuf,
     let _=command_sender.send(VpiCommand::new_nbc(VpiCommandBody::Basic(VpiCmd::IrqWake(cfg.wake_irq)) ));
     // Rule & exectution engine
     let mut engine=Engine::new(&cfg,&command_sender);
-
+    engine.start_miniservices()?;
+    
+    info!("Rule engine started");
     // Main Loop
     loop {
         select! {
@@ -179,10 +183,9 @@ fn serve(cfg_file : &PathBuf,
             recv(monitor) -> _ => {
                 engine.test_childs(false);
                 engine.test_lua_childs(false);
-                last_stats=vpi.get_stats();
                 if let Ok(st) = vpi.monitor() {
                     if st.has_changed(&last_status) {
-                        let _=engine.run_rules(&st,&last_stats);
+                        let _=engine.run_rules(&st,&vpi.get_stats());
                     }
                     last_status=st;
                 } else {
@@ -230,6 +233,35 @@ fn serve(cfg_file : &PathBuf,
                             },
                             Err(e) => error!("Command {:?} failed",e)
                         }
+                    },
+                    VpiCommandBody::SetKey(ref key, ref value) => {
+                        info!("Key '{}' storage set to '{}'",key,value);
+                        key_storage.insert(key.clone(),value.clone());
+                        cmd.send_ok()
+                    },
+                    VpiCommandBody::GetKey(ref key) => {
+                        if key_storage.contains_key(key) {
+                            let val=key_storage.get(key).unwrap();
+                            info!("Key '{}' storage retrieved with value '{}'",key,val);
+                            let js=json!({
+                                "result":true,
+                                "data": val
+                            });
+                            cmd.send_response(js.to_string())
+                        } else {
+                            warn!("Key '{}' not found",key);
+                            cmd.send_error()
+                        }
+                    },
+                    VpiCommandBody::Exit(reboot) => {
+                        cmd.send_ok();
+                        info!("Exit command reboot:{}",reboot);
+                        if reboot {
+                            let _=vpi.init().cmd();
+                        } else {
+                            let _=vpi.shutdown().cmd();
+                        }
+                        return Ok(RET_CODE_EXIT);
                     },
                 }
             } // match 
