@@ -8,28 +8,25 @@ After=local-fs.target
 
 [Service]
 Type=idle
-EnvironmentFile=/etc/vpid/vpidEnv
-Environment="RUST_LOG=${VPI_LOGLEVEL}"
+EnvironmentFile= /etc/vpid/vpidEnv
+#Environment=RUST_LOG=info
 # Start the service
-ExecStart=${VPI_BINDIR}/vpid --config=$VPI_CONFIGFILE --socket=$VPI_SOCKET --device=$VPI_DEVICE --address=$VPI_ADDRESS
+ExecStart= /home/boros/vpid_bin/vpid --config=${VPI_CONFIGFILE} --socket=${VPI_SOCKET} --device=${VPI_DEVICE} --address=${VPI_ADDRESS}
 # Stopt script to send init command on reboot & shutdown in poweroff
-ExecStop=/bin/sh  -c ' \
-if [ $VPI_SHUTDOWN -eq 1 ] ; then \
- systemctl list-jobs | egrep -q "poweroff.target.*start" \
- if [ $? -eq 0 ] ; then \
-    ${VPI_BINDIR}/vpidctl --device=$VPI_DEVICE --address=$VPI_ADDRESS dcmd shutdown \
- fi \
- systemctl list-jobs | egrep -q "reboot.target.*start" \
- if [ $? -eq 0 ] ; then \
-    ${VPI_BINDIR}/vpidctl --device=$VPI_DEVICE --address=$VPI_ADDRESS dcmd init \
- fi \
+ExecStop= /bin/sh  -c '\
+if [ ${VPI_SHUTDOWN} -eq 1 ] ; then \
+ systemctl list-jobs | egrep -q "poweroff.target.*start" ; \
+ [ $? -eq 0 ] && ${VPI_BINDIR}/vpidctl cmd --socket=${VPI_SOCKET} exit ; \
+ systemctl list-jobs | egrep -q "reboot.target.*start" ; \
+ [ $? -eq 0 ] && ${VPI_BINDIR}/vpidctl cmd --socket=${VPI_SOCKET} exit 1 ; \
 fi'
+
 # Restart the service on failures with 5s seconds delay
-Restart=on-failure
-RestartSec=5s
+Restart= on-failure
+RestartSec= 5s
 # User & group to execute the service
-User=root
-Group=root
+User= root
+Group= root
 
 [Install]
 WantedBy=multi-user.target

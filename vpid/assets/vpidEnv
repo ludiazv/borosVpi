@@ -8,7 +8,7 @@ VPI_DEVICE=/dev/i2c-1
 #VPI_BINDIR=/usr/bin
 VPI_BINDIR=/home/boros/vpid_bin
 # Define log level (info,warn,error)
-VPI_LOGLEVEL=warn
+RUST_LOG=info
 # Location of the config file
 VPI_CONFIGFILE=/etc/vpid/vpid.yml
 # Vpid socket name
@@ -16,4 +16,4 @@ VPI_SOCKET=/var/run/vpid.sock
 # I2C address use in case of custom build with different address
 VPI_ADDRESS=0x33
 # Power off the board when system shutdowns 0-No 1-Yes
-VPI_SHUTDOWN=0
+VPI_SHUTDOWN=1

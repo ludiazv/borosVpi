@@ -3,9 +3,8 @@
 # VPID configuration file
 # ------------------------
 
-
-# Button parameters
-# -----------------
+# Basic timing parameters
+# -----------------------
 # short_time -> max time for short click in ms
 # space_time -> min time between consecutive clicks in ms
 # grace_time -> grace time for shutdown/halt in seconds
@@ -21,8 +20,8 @@ hold_time:  6
 # watch_autofeed   -> <true/false> the service will auto feed the watchdog
 # poll_time        -> Overide polling time in ms (should be shorter than space_time)
 # poweroff_onexit  -> Poweroff when vpid service is finished gracefully poweroff
-# shutdown_command -> Custom shuthdown command.
-# reboot_command   -> Custom reboot command. default: /
+# shutdown_command -> Custom shuthdown command. default: /sbin/shutdown -P now
+# reboot_command   -> Custom reboot command. default: /sbin/shutdown -r now
 # shell            -> Shell to run commands. default: /bin/sh -c
 # wake             -> Configure wake mode on boot. default:0. if >0 wake will be enabled
 # wake_irq         -> Configure wake by IRQ on boot.
@@ -77,9 +76,6 @@ rules:
 #    when: short == 2
 #    type: Reboot
 
-
-
-
 # Fan control configuration
 # -------------------------
 fan:
@@ -106,3 +102,44 @@ fan:
   mode: Pi
   #thermal_path: /sys/class/thermal/thermal_zone0/temp
   pi_desired_temp: 45500
+
+# Lua mini services
+# -----------------
+services:
+  - name: "simple log mini service"
+    script: |
+      -- Simple lua service showing built in log and sleep functions. 
+      vpi:info("Start simple lua mini services to test log and sleep functions")
+      while( not vpi_test_cancel() )
+      do
+        res=vpi:cmd("uuid")
+        vpi:warn("This is a periodic warning -> " .. tostring(res["result"]) .. " uuid:" .. res["data"])
+        vpi:sleep(2000) -- sleep for 2 seconds
+      end
+      vpi:info("Mini service finished")
+      return 0
+  - name: "built in json"
+    script: |
+      -- Simple script to show built in Json parse capabilities
+      -- Print contents of `tbl`, with indentation.
+      -- `indent` sets the initial level of indentation.
+      function tprint (tbl, indent)
+        if not indent then indent = 0 end
+        for k, v in pairs(tbl) do
+          formatting = string.rep("  ", indent) .. k .. ": "
+          if type(v) == "table" then
+            vpi:info(formatting)
+            tprint(v, indent+1)
+          elseif type(v) == 'boolean' then
+            vpi:info(formatting .. tostring(v))      
+          else
+            vpi:info(formatting .. v)
+          end
+        end
+      end
+      json=[[ {"bool":true,"ar":[1,2,3],"float":12.5,"null":null,"nested":{"int":1,"string":"mytsring"}} ]]
+      vpi:info("Parsed Json as lua table:")
+      tprint( vpi:parse_json(json) )
+      tprint( vpi:cmd("status") )
+      return 0
+    
